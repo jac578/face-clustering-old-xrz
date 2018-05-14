@@ -208,6 +208,7 @@ def my_cluster_after_read(feature_list, filePathList, picDir, method, saveResult
 
             picPath = filePathList[i].replace('/workspace/data/blued_code/face-feature-api/ava-version-python-little-endian/feature_face/facex_api_response_blue_list_'
                                             , '/workspace/data/blued_data/image_cropping_extend/image_face_cropping_ext_')
+            picName = filePathList[i].replace('.npy', '.jpg').split('/')[-1]
             print filePathList
             print picPath
             # picName = filePathList[i].replace('.npy', '.jpg')
