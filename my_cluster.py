@@ -173,7 +173,8 @@ def my_cluster_after_read(feature_list, filePathList, picDir, method, saveResult
     t1 = time.time()
     print feature_list.shape, len(filePathList)
     assert feature_list.shape[0] == len(filePathList)
-    y_pred = cluster_face_features(feature_list=feature_list, method=method, eps=eps)
+    filePathList = filePathList[0:2]
+    y_pred = cluster_face_features(feature_list=feature_list[0:2,:], method=method, eps=eps)
     assert len(y_pred) == len(filePathList)
     t2 = time.time()
     print "Done clustering. Start copying result: ", t2, "Clustering time cost", t2 - t1
@@ -204,11 +205,15 @@ def my_cluster_after_read(feature_list, filePathList, picDir, method, saveResult
                 os.makedirs(classDir)
             except:
                 pass
-            picName = filePathList[i].replace('.npy', '.jpg')
-            picName = picName.replace('facex_api_response_blue_list_', 'image_face_cropping_ext_')
-            if picName.startswith('/'):
-                picName = picName[1:]
-            picPath = os.path.join(picDir, picName)
+
+            picPath = filePathList[i].replace('/workspace/data/blued_code/face-feature-api/ava-version-python-little-endian/feature_face/facex_api_response_blue_list_'
+                                            , '/workspace/data/blued_data/image_cropping_extend/image_face_cropping_ext_')
+            print filePathList
+            print picPath
+            # picName = filePathList[i].replace('.npy', '.jpg')
+            # if picName.startswith('/'):
+            #     picName = picName[1:]
+            # picPath = os.path.join(picDir, picName)
             shutil.copyfile(picPath, classDir+picName)
     t3 = time.time()
     print "Done copying: ", t3, "Copying time cost", t3 - t2
