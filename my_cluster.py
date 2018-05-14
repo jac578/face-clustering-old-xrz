@@ -24,8 +24,11 @@ def read_txtlist(sourceDir, path):
         while aPath:
             if aPath.startswith('/'):
                 aPath = aPath[1:]
-            pathList.append(os.path.join(sourceDir, aPath))
-            aPath = f.readline().strip()
+            if aPath.startswith('./'):
+                aPath = aPath[2:]
+            if aPath.endswith(".npy") or aPath.endswith(".mat"):
+                pathList.append(os.path.join(sourceDir, aPath))
+                aPath = f.readline().strip()
     return pathList
 
 def feature_data_reader(dataPath, featureList):
@@ -175,6 +178,23 @@ def my_cluster_after_read(feature_list, filePathList, picDir, method, saveResult
     t2 = time.time()
     print "Done clustering. Start copying result: ", t2, "Clustering time cost", t2 - t1
 
+    # if saveResult:
+    #     #saveDirPrefix = 'result_' + method + videoDir.replace('./', '')
+    #     saveDirPrefix = saveDir
+    #     for i in range(len(y_pred)):
+    #         classDir = saveDirPrefix+'/'+str(y_pred[i])+'/'
+    #         try:
+    #             os.makedirs(classDir)
+    #         except:
+    #             pass
+    #         picName = filePathList[i].replace('.npy', '.jpg').split('/')[-1]
+    #         if picName.startswith('/'):
+    #             picName = picName[1:]
+    #         picPath = os.path.join(picDir, picName)
+    #         try:
+    #             shutil.copyfile(picPath, classDir+picName)
+    #         except IOError, e:
+    #             pass
     if saveResult:
         #saveDirPrefix = 'result_' + method + videoDir.replace('./', '')
         saveDirPrefix = saveDir
@@ -184,7 +204,8 @@ def my_cluster_after_read(feature_list, filePathList, picDir, method, saveResult
                 os.makedirs(classDir)
             except:
                 pass
-            picName = filePathList[i].replace('.npy', '.jpg').split('/')[-1]
+            picName = filePathList[i].replace('.npy', '.jpg')
+            picName = picName.replace('facex_api_response_blue_list_', 'image_face_cropping_ext_')
             if picName.startswith('/'):
                 picName = picName[1:]
             picPath = os.path.join(picDir, picName)
