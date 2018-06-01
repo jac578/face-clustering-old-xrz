@@ -1,7 +1,11 @@
 import json
 import os
+import os.path as osp
 import numpy as np
 import urllib2
+
+import base64
+
 from unpack_stream_to_float32 import unpack_feature_from_stream
 
 
@@ -48,6 +52,19 @@ def individual_to_npy(individualDict, videoPath):
     for singlePicDict in individualDict['features']:
         downloadPic(singlePicDict['faceUri'], individualPath)
         picName = singlePicDict['faceUri'].split('/')[-1]
+
+        b64_dat_fn = osp.join(individualPath, picName + '_b64.dat')
+        dat_fn = osp.join(individualPath, picName + '.dat')
+
+        fp = open(b64_dat_fn, 'w')
+        fp.write(singlePicDict['data'])
+        fp.close()
+
+        decoded_stream = base64.decodestring(singlePicDict['data'])
+        fp = open(dat_fn, 'wb')
+        fp.write(decoded_stream)
+        fp.close()
+
         npyFeature = code_feature_to_npy(singlePicDict['data'])
         npyFeature = np.asarray(npyFeature, dtype=np.float32)
         np.save(file=individualPath + '/' + picName, arr=npyFeature)
