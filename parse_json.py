@@ -11,15 +11,15 @@ from unpack_stream_to_float32 import unpack_feature_from_stream
 
 def convert_json_file_to_npy(jsonFile):
     jsonDict = load_json_file(jsonFile)
-    videoId = jsonDict['faces'][0]['videoId']
-    videoPath = './' + videoId
+    featId = jsonDict['faces'][0]['featId']
+    featPath = './' + featId
     try:
-        os.makedirs(videoPath)
+        os.makedirs(featPath)
     except:
         pass
     for individualDict in jsonDict['faces']:
-        individual_to_npy(individualDict, videoPath)
-    return videoPath
+        individual_to_npy(individualDict, featPath)
+    return featPath
 
 
 def downloadPic(picUrl, path):
@@ -42,9 +42,9 @@ def code_feature_to_npy(jsonString):
     return unpack_feature_from_stream(jsonString)
 
 
-def individual_to_npy(individualDict, videoPath):
+def individual_to_npy(individualDict, featPath):
     id = individualDict['id']
-    individualPath = videoPath + '/' + id
+    individualPath = featPath + '/' + id
     try:
         os.makedirs(individualPath)
     except:
@@ -72,5 +72,5 @@ def individual_to_npy(individualDict, videoPath):
 
 
 if __name__ == "__main__":
-    convert_json_file_to_npy('video1.json')
-    convert_json_file_to_npy('video2.json')
+    convert_json_file_to_npy('feat1.json')
+    convert_json_file_to_npy('feat2.json')

@@ -116,10 +116,10 @@ def multiprocess_feature_data_reader(dataPath, featureList, nProcess=1):
         for i in range(nProcess):
             if i == nProcess - 1:
                 resList.append(p.apply_async(
-                    feature_data_reader_fromList, args=(filePathList[pos:],)))
+                    feature_data_reader_fromList, args=(dataPath, filePathList[pos:],)))
             else:
                 resList.append(p.apply_async(
-                    feature_data_reader_fromList, args=(filePathList[pos:pos + step],)))
+                    feature_data_reader_fromList, args=(dataPath, filePathList[pos:pos + step],)))
                 pos += step
         p.close()
         p.join()
@@ -181,30 +181,35 @@ def __compute_pairwise_distance(face_feature_list):
     return dist_matrix
 
 
-def my_cluster(videoDir, featureList, picDir, method,
+def my_cluster(featDir, featureList, imgDir, method,
                saveResult=False, saveDir='result', eps=0.5,
                nReaderProcess=1, nClusterProcess=1, **kwargs):
+    # saveResult = not(not(saveResult))
 
     resultDict = {}
     t0 = time.time()
     print "Start loading data: ", t0
-    #feature_list, global_pic, filePathList = feature_data_reader(videoDir, featureList)
+    #feature_list, global_pic, filePathList = feature_data_reader(featDir, featureList)
     feature_list, global_pic, filePathList = multiprocess_feature_data_reader(
-        videoDir, featureList, nReaderProcess)
+        featDir, featureList, nReaderProcess)
 
     t1 = time.time()
     print "Done loading data. Start clustering: ", t1, "Loading data time cost: ", t1 - t0
 
     my_cluster_after_read(feature_list, filePathList,
-                          picDir, method, saveResult, saveDir, eps)
+                          imgDir, method, saveResult, saveDir, eps)
 
     return
 
 
 def my_cluster_after_read(feature_list, filePathList,
-                          picDir, method,
+                          imgDir, method,
                           saveResult=False, saveDir='result',
                           eps=0.5):
+    # saveResult = not(not(saveResult))
+
+    # print 'saveResult: ', saveResult
+
     t1 = time.time()
     print feature_list.shape, len(filePathList)
     assert feature_list.shape[0] == len(filePathList)
@@ -216,7 +221,7 @@ def my_cluster_after_read(feature_list, filePathList,
     print "Done clustering. Start copying result: ", t2, "Clustering time cost", t2 - t1
 
     # if saveResult:
-    #     #saveDirPrefix = 'result_' + method + videoDir.replace('./', '')
+    #     #saveDirPrefix = 'result_' + method + featDir.replace('./', '')
     #     saveDirPrefix = saveDir
     #     for i in range(len(y_pred)):
     #         classDir = saveDirPrefix+'/'+str(y_pred[i])+'/'
@@ -227,13 +232,13 @@ def my_cluster_after_read(feature_list, filePathList,
     #         picName = filePathList[i].replace('.npy', '.jpg').split('/')[-1]
     #         if picName.startswith('/'):
     #             picName = picName[1:]
-    #         picPath = osp.join(picDir, picName)
+    #         picPath = osp.join(imgDir, picName)
     #         try:
     #             shutil.copyfile(picPath, classDir+picName)
     #         except IOError, e:
     #             pass
     if saveResult:
-        #saveDirPrefix = 'result_' + method + videoDir.replace('./', '')
+        #saveDirPrefix = 'result_' + method + featDir.replace('./', '')
         saveDirPrefix = saveDir
 
         for i in range(len(y_pred)):
@@ -246,10 +251,10 @@ def my_cluster_after_read(feature_list, filePathList,
             #                                   '/workspace/data/blued_data/image_cropping_extend/image_face_cropping_ext_').replace('.npy', '.jpg')
             # picName = filePathList[i].replace('.npy', '.jpg').split('/')[-1]
             # picName = filePathList[i].replace('.npy', '.jpg')
-            picName = filePathList[i].replace('.npy', '')
+            picName = filePathList[i].replace('.npy', '.jpg')
             if picName.startswith('/'):
                 picName = picName[1:]
-            picPath = osp.join(picDir, picName)
+            picPath = osp.join(imgDir, picName)
 
             print '===> picPath: ' + picPath
             print '===> picName: ' + picName
@@ -266,17 +271,19 @@ def my_cluster_after_read(feature_list, filePathList,
     return
 
 
-def cluster_from_video_dir(videoDir, featureList,
-                           picDir, methodList=['DBSCAN'],
-                           saveResult=False, saveDir='result',
-                           eps=0.5, nProcess=1):
+def cluster_from_feat_dir(featDir, featureList,
+                          imgDir, methodList=['DBSCAN'],
+                          saveResult=False, saveDir='result',
+                          eps=0.5, nProcess=1):
     methodResultDict = {}
+    # saveResult = not(not(saveResult))
+
     for method in methodList:
         t0 = time.time()
         print "method: " + method
         print "start time: ", t0
-        # methodResultDict[method] = my_cluster(videoDir, featureList, picDir, method, saveResult, saveDir, eps, nProcess)
-        my_cluster(videoDir, featureList, picDir, method,
+        # methodResultDict[method] = my_cluster(featDir, featureList, imgDir, method, saveResult, saveDir, eps, nProcess)
+        my_cluster(featDir, featureList, imgDir, method,
                    saveResult, saveDir, eps, nProcess)
         t1 = time.time()
         print "end time: ", t1
@@ -293,8 +300,8 @@ def download_json(httpLink):
 
 def cluster_from_httpLink(httpLink):
     jsonFile = download_json(httpLink)
-    videoDir = convert_json_file_to_npy(jsonFile)
-    # cluster_from_video_dir(videoDir=videoDir)
+    featDir = convert_json_file_to_npy(jsonFile)
+    # cluster_from_feat_dir(featDir=featDir)
 
 
 def cluster_from_httpLinkList(httpLinkList):
@@ -303,10 +310,10 @@ def cluster_from_httpLinkList(httpLinkList):
 
 
 if __name__ == "__main__":
-    httpLinkList = ['http://100.100.62.235:8000/v1/videos/5aba6d7a4d7eac0007611734/faces',
-                    #'http://100.100.62.235:8000/v1/videos/5aba6d7a4d7eac0007611736/faces',
-                    #'http://100.100.62.235:8000/v1/videos/5aba6da14d7eac0007611738/faces',
-                    #'http://100.100.62.235:8000/v1/videos/5aba6da94d7eac000761173a/faces',
+    httpLinkList = ['http://100.100.62.235:8000/v1/feats/5aba6d7a4d7eac0007611734/faces',
+                    #'http://100.100.62.235:8000/v1/feats/5aba6d7a4d7eac0007611736/faces',
+                    #'http://100.100.62.235:8000/v1/feats/5aba6da14d7eac0007611738/faces',
+                    #'http://100.100.62.235:8000/v1/feats/5aba6da94d7eac000761173a/faces',
                     ]
     # cluster_from_httpLinkList(httpLinkList)
-    #cluster_from_video_dir(videoDir='5ab52c0e28734100076d67b9', methodList=['DBSCAN'])
+    #cluster_from_feat_dir(featDir='5ab52c0e28734100076d67b9', methodList=['DBSCAN'])
