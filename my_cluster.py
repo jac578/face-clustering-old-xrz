@@ -40,19 +40,25 @@ def feature_data_reader(dataPath, featureList):
     filePathList = read_txtlist(featureList)
     # Use first one to initialize
 
-    fileFullPath = osp.join(dataPath, filePathList[0])
-    feature_list = np.load(fileFullPath)
-    # Concat else
     cnt = 0
-    for filePath in filePathList[1:]:
+    feature_list = None
+
+    for filePath in filePathList:
         cnt += 1
         print cnt
         fileFullPath = osp.join(dataPath, filePath)
         featureVec = np.load(fileFullPath)
-        try:
+        if featureVec.size() != FEATURE_DIENSION:
+            print 'loaded feature size != %d, skip to next' % FEATURE_DIENSION
+            continue
+
+        feature_list = np.load(fileFullPath)
+
+        if cnt == 1:
+            feature_list = featureVec
+        else:
             feature_list = np.vstack((feature_list, featureVec))
-        except:
-            print feature_list.shape, featureVec.shape, fileFullPath
+
     return np.asarray(feature_list), global_pic, filePathList
 
 
