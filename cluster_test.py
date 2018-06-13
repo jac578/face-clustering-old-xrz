@@ -151,17 +151,22 @@ if __name__ == '__main__':
     parser.add_argument('--method', type=str, required=True,
                         help='DBSCAN, API, AP, RankOrder')
     parser.add_argument('--labelDir', type=str, required=False,
-                        default='test_set', help='Path of labeled pictures')
+                        default='test_set', help='Path of labeled images')
     parser.add_argument('--featDir', type=str, required=True,
                         help='Path of features to be clustered')
     parser.add_argument('--featureList', type=str, required=True,
                         help='Feature list of feature file name')
-    parser.add_argument('--imgDir', type=str, required=True,
-                        help='Path of pictures to be clustered')
+    parser.add_argument('--imgDir', type=str, required=False,
+                        default='',
+                        help='Path of images to be clustered')
+    parser.add_argument('--imgList', type=str, required=False,
+                        default='',
+                        help='List of images to be clustered')
     parser.add_argument('--saveResult', dest='saveResult', action='store_true',
-                        help='Whether to save the result pics')
+                        help='Whether to save the result imgs')
     parser.add_argument('--saveDir', type=str, required=True,
-                        help='Path to save clustered pictures')
+                        default='./results',
+                        help='Path to save clustered images')
     parser.add_argument('--eps', type=float, required=False,
                         default=None, help='DBSCAN parameter')
     parser.add_argument('--nProcess', type=int, required=False,
@@ -181,8 +186,11 @@ if __name__ == '__main__':
     print "args['saveResult']: ", args['saveResult']
 
     saveDir = args['saveDir'] + '_' + eps
-    cluster_from_feat_dir(args['featDir'], args['featureList'], args['imgDir'], methodList=[args['method']],
-                          saveResult=args['saveResult'], saveDir=saveDir, eps=args['eps'], nProcess=args['nProcess'])
+    cluster_from_feat_dir(args['featDir'], args['featureList'],
+                          [args['method']],
+                          saveResult=args['saveResult'], saveDir=saveDir,
+                          imgDir=args['imgDir'], imgList=args['imgList'],
+                          eps=args['eps'], nProcess=args['nProcess'])
 
     print args['eps']
     # os.system("ls -lR {}|grep \"^-\"|wc -l".format(saveDir))

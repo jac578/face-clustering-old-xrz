@@ -22,12 +22,12 @@ def convert_json_file_to_npy(jsonFile):
     return featPath
 
 
-def downloadPic(picUrl, path):
-    response = urllib2.urlopen(picUrl)
-    pic = response.read()
-    picName = picUrl.split('/')[-1]
-    with open(path + '/' + picName, 'wb') as f:
-        f.write(pic)
+def downloadimg(imgUrl, path):
+    response = urllib2.urlopen(imgUrl)
+    img = response.read()
+    imgName = imgUrl.split('/')[-1]
+    with open(path + '/' + imgName, 'wb') as f:
+        f.write(img)
         f.close()
     return
 
@@ -49,25 +49,25 @@ def individual_to_npy(individualDict, featPath):
         os.makedirs(individualPath)
     except:
         pass
-    for singlePicDict in individualDict['features']:
-        downloadPic(singlePicDict['faceUri'], individualPath)
-        picName = singlePicDict['faceUri'].split('/')[-1]
+    for singleimgDict in individualDict['features']:
+        downloadimg(singleimgDict['faceUri'], individualPath)
+        imgName = singleimgDict['faceUri'].split('/')[-1]
 
-        b64_dat_fn = osp.join(individualPath, picName + '_b64.dat')
-        dat_fn = osp.join(individualPath, picName + '.dat')
+        b64_dat_fn = osp.join(individualPath, imgName + '_b64.dat')
+        dat_fn = osp.join(individualPath, imgName + '.dat')
 
         fp = open(b64_dat_fn, 'w')
-        fp.write(singlePicDict['data'])
+        fp.write(singleimgDict['data'])
         fp.close()
 
-        decoded_stream = base64.decodestring(singlePicDict['data'])
+        decoded_stream = base64.decodestring(singleimgDict['data'])
         fp = open(dat_fn, 'wb')
         fp.write(decoded_stream)
         fp.close()
 
-        npyFeature = code_feature_to_npy(singlePicDict['data'])
+        npyFeature = code_feature_to_npy(singleimgDict['data'])
         npyFeature = np.asarray(npyFeature, dtype=np.float32)
-        np.save(file=individualPath + '/' + picName, arr=npyFeature)
+        np.save(file=individualPath + '/' + imgName, arr=npyFeature)
     return
 
 
