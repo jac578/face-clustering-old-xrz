@@ -1,17 +1,22 @@
-# coding=utf-8
-from sklearn import cluster
-from scipy.spatial.distance import cosine as ssd_cosine_dist
+#! /bin/env python
+#---coding=utf-8
+import os
+import os.path as osp
+
 import numpy as np
 import scipy.misc as sc
 
+from sklearn import cluster
+from scipy.spatial.distance import cosine as ssd_cosine_dist
+
 import time
-import os
-import os.path as osp
 import shutil
 
 import urllib2
 from parse_json import convert_json_file_to_npy
 #from demo_noLFW import rankOrder_cluster_format
+
+from matio import load_feat
 
 import multiprocessing
 
@@ -28,15 +33,17 @@ def read_txtlist(path):
                 aPath = aPath[1:]
             if aPath.startswith('./'):
                 aPath = aPath[2:]
-            if aPath.endswith(".npy") or aPath.endswith(".mat"):
+            if aPath.endswith(".npy") or aPath.endswith(".mat") or aPath.endswith(".bin"):
                 pathList.append(aPath)
                 aPath = f.readline().strip()
+        f.close()
+
     return pathList
 
 
 def feature_data_reader(dataPath, featureList):
     feature_list = None
-    global_pic = None
+    index_list = None
     filePathList = read_txtlist(featureList)
     # Use first one to initialize
 
@@ -47,7 +54,8 @@ def feature_data_reader(dataPath, featureList):
         cnt += 1
         print cnt
         fileFullPath = osp.join(dataPath, filePath)
-        featureVec = np.load(fileFullPath)
+        # featureVec = np.load(fileFullPath)
+        featureVec = load_feat(fileFullPath)
         if featureVec.size() != FEATURE_DIENSION:
             print 'loaded feature size != %d, skip to next' % FEATURE_DIENSION
             continue
@@ -59,7 +67,7 @@ def feature_data_reader(dataPath, featureList):
         else:
             feature_list = np.vstack((feature_list, featureVec))
 
-    return np.asarray(feature_list), global_pic, filePathList
+    return np.asarray(feature_list), index_list, filePathList
 
 
 def feature_data_reader_fromList(dataPath, filePathList):
@@ -100,13 +108,18 @@ def feature_data_reader_fromList(dataPath, filePathList):
 
 
 def multiprocess_feature_data_reader(dataPath, featureList, nProcess=1):
+    nProcess = min(nProcess, 64)
+
     if nProcess == 1:
         return feature_data_reader(dataPath, featureList)
     else:
         feature_list = None
-        global_pic = None
+        index_list = None
         filePathList = read_txtlist(featureList)
         total_line = len(filePathList)
+
+        if total_line < nProcess:
+            nProcess = 1
 
         p = multiprocessing.Pool(nProcess)
         pos = 0
@@ -116,10 +129,10 @@ def multiprocess_feature_data_reader(dataPath, featureList, nProcess=1):
         for i in range(nProcess):
             if i == nProcess - 1:
                 resList.append(p.apply_async(
-                    feature_data_reader_fromList, args=(filePathList[pos:],)))
+                    feature_data_reader_fromList, args=(dataPath, filePathList[pos:],)))
             else:
                 resList.append(p.apply_async(
-                    feature_data_reader_fromList, args=(filePathList[pos:pos + step],)))
+                    feature_data_reader_fromList, args=(dataPath, filePathList[pos:pos + step],)))
                 pos += step
         p.close()
         p.join()
@@ -131,7 +144,8 @@ def multiprocess_feature_data_reader(dataPath, featureList, nProcess=1):
                 feature_block, filePathList_part = resList[i].get()
                 feature_list = np.vstack((feature_list, feature_block))
                 filePathList = filePathList + filePathList_part
-        return np.asarray(feature_list), global_pic, filePathList
+
+        return np.asarray(feature_list), index_list, filePathList
 
 
 def cluster_face_features(feature_list, method=None, precomputed=True, eps=0.5):
@@ -181,30 +195,45 @@ def __compute_pairwise_distance(face_feature_list):
     return dist_matrix
 
 
-def my_cluster(videoDir, featureList, picDir, method,
-               saveResult=False, saveDir='result', eps=0.5,
+def do_cluster(featDir, featureList, method,
+               saveResult=False, saveDir='result',
+               imgDir=None, imgList=None,
+               eps=0.5,
                nReaderProcess=1, nClusterProcess=1, **kwargs):
+    # saveResult = not(not(saveResult))
 
-    resultDict = {}
+    # resultDict = {}
     t0 = time.time()
+
+    n_feat = len(featureList)
+
+    if n_feat < nReaderProcess:
+        nReaderProcess = 1
+
     print "Start loading data: ", t0
-    #feature_list, global_pic, filePathList = feature_data_reader(videoDir, featureList)
-    feature_list, global_pic, filePathList = multiprocess_feature_data_reader(
-        videoDir, featureList, nReaderProcess)
+    #feature_list, index_list, filePathList = feature_data_reader(featDir, featureList)
+    feature_list, index_list, filePathList = multiprocess_feature_data_reader(
+        featDir, featureList, nReaderProcess)
 
     t1 = time.time()
     print "Done loading data. Start clustering: ", t1, "Loading data time cost: ", t1 - t0
 
-    my_cluster_after_read(feature_list, filePathList,
-                          picDir, method, saveResult, saveDir, eps)
+    do_cluster_after_read(feature_list, filePathList, method,
+                          saveResult, saveDir,
+                          imgDir, imgList,
+                          eps)
 
     return
 
 
-def my_cluster_after_read(feature_list, filePathList,
-                          picDir, method,
+def do_cluster_after_read(feature_list, filePathList, method,
                           saveResult=False, saveDir='result',
+                          imgDir=None, imgList=None,
                           eps=0.5):
+    # saveResult = not(not(saveResult))
+
+    # print 'saveResult: ', saveResult
+
     t1 = time.time()
     print feature_list.shape, len(filePathList)
     assert feature_list.shape[0] == len(filePathList)
@@ -213,10 +242,11 @@ def my_cluster_after_read(feature_list, filePathList,
         feature_list=feature_list, method=method, eps=eps)
     assert len(y_pred) == len(filePathList)
     t2 = time.time()
+
     print "Done clustering. Start copying result: ", t2, "Clustering time cost", t2 - t1
 
     # if saveResult:
-    #     #saveDirPrefix = 'result_' + method + videoDir.replace('./', '')
+    #     #saveDirPrefix = 'result_' + method + featDir.replace('./', '')
     #     saveDirPrefix = saveDir
     #     for i in range(len(y_pred)):
     #         classDir = saveDirPrefix+'/'+str(y_pred[i])+'/'
@@ -224,39 +254,67 @@ def my_cluster_after_read(feature_list, filePathList,
     #             os.makedirs(classDir)
     #         except:
     #             pass
-    #         picName = filePathList[i].replace('.npy', '.jpg').split('/')[-1]
-    #         if picName.startswith('/'):
-    #             picName = picName[1:]
-    #         picPath = osp.join(picDir, picName)
+    #         imgName = filePathList[i].replace('.npy', '.jpg').split('/')[-1]
+    #         if imgName.startswith('/'):
+    #             imgName = imgName[1:]
+    #         imgPath = osp.join(imgDir, imgName)
     #         try:
-    #             shutil.copyfile(picPath, classDir+picName)
+    #             shutil.copy2(imgPath, classDir+imgName)
     #         except IOError, e:
     #             pass
     if saveResult:
-        #saveDirPrefix = 'result_' + method + videoDir.replace('./', '')
+        #saveDirPrefix = 'result_' + method + featDir.replace('./', '')
         saveDirPrefix = saveDir
 
+        if isinstance(imgList, str) and osp.exists(imgList):
+            imgList2 = []
+            with open(imgList, 'r') as fp:
+                for line in fp:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    imgList2.append(line)
+                imgList = imgList2
+                fp.close()
+
+        ###################################
+        # fix imgList according to your need
+        if not imgList:
+            imgList = []
+            for i in range(len(y_pred)):
+                imgList.append(filePathList[i].replace('.npy', '.jpg'))
+        ###################################
+
+        print '===> imgList: ', imgList
         for i in range(len(y_pred)):
             classDir = osp.join(saveDirPrefix, str(y_pred[i]))
+
             print '===> classDir: ' + classDir
             if not osp.exists(classDir):
                 os.makedirs(classDir)
 
-            # picPath = filePathList[i].replace('/workspace/data/blued_code/face-feature-api/ava-version-python-little-endian/feature_face/facex_api_response_blue_list_',
+            # imgPath = filePathList[i].replace('/workspace/data/blued_code/face-feature-api/ava-version-python-little-endian/feature_face/facex_api_response_blue_list_',
             #                                   '/workspace/data/blued_data/image_cropping_extend/image_face_cropping_ext_').replace('.npy', '.jpg')
-            # picName = filePathList[i].replace('.npy', '.jpg').split('/')[-1]
-            # picName = filePathList[i].replace('.npy', '.jpg')
-            picName = filePathList[i].replace('.npy', '')
-            if picName.startswith('/'):
-                picName = picName[1:]
-            picPath = osp.join(picDir, picName)
+            # imgName = filePathList[i].replace('.npy', '.jpg').split('/')[-1]
+            # imgName = filePathList[i].replace('.npy', '.jpg')
+            imgName = imgList[i]
 
-            print '===> picPath: ' + picPath
-            print '===> picName: ' + picName
-            save_path = osp.join(classDir, osp.basename(picName))
+            if imgName.startswith('/'):
+                imgName = imgName[1:]
+
+            imgPath = osp.join(imgDir, imgName)
+
+            print '===> imgPath: ' + imgPath
+            print '===> imgName: ' + imgName
+
+            save_path = osp.join(classDir, osp.basename(imgName))
             print '===> save_path: ' + save_path
 
-            shutil.copyfile(picPath, save_path)
+            sub_dir = osp.dirname(save_path)
+            if not osp.exists(sub_dir):
+                os.makedirs(sub_dir)
+
+            shutil.copy2(imgPath, save_path)
 
     t3 = time.time()
     print "Done copying: ", t3, "Copying time cost", t3 - t2
@@ -266,19 +324,27 @@ def my_cluster_after_read(feature_list, filePathList,
     return
 
 
-def cluster_from_video_dir(videoDir, featureList,
-                           picDir, methodList=['DBSCAN'],
-                           saveResult=False, saveDir='result',
-                           eps=0.5, nProcess=1):
+def cluster_from_feat_dir(featDir, featureList,
+                          methodList=['DBSCAN'],
+                          saveResult=False, saveDir='result',
+                          imgDir=None, imgList=None,
+                          eps=0.5, nProcess=1):
     methodResultDict = {}
+    # saveResult = not(not(saveResult))
+
     for method in methodList:
         t0 = time.time()
-        print "method: " + method
+        print "method: ", method
         print "start time: ", t0
-        # methodResultDict[method] = my_cluster(videoDir, featureList, picDir, method, saveResult, saveDir, eps, nProcess)
-        my_cluster(videoDir, featureList, picDir, method,
-                   saveResult, saveDir, eps, nProcess)
+
+        # methodResultDict[method] = do_cluster(featDir, featureList, imgDir, method, saveResult, saveDir, eps, nProcess)
+        do_cluster(featDir, featureList,  method,
+                   saveResult, saveDir,
+                   imgDir, imgList,
+                   eps, nProcess)
+
         t1 = time.time()
+
         print "end time: ", t1
         print "time cost: ", t1 - t0
     return methodResultDict
@@ -293,8 +359,8 @@ def download_json(httpLink):
 
 def cluster_from_httpLink(httpLink):
     jsonFile = download_json(httpLink)
-    videoDir = convert_json_file_to_npy(jsonFile)
-    # cluster_from_video_dir(videoDir=videoDir)
+    featDir = convert_json_file_to_npy(jsonFile)
+    # cluster_from_feat_dir(featDir=featDir)
 
 
 def cluster_from_httpLinkList(httpLinkList):
@@ -303,10 +369,10 @@ def cluster_from_httpLinkList(httpLinkList):
 
 
 if __name__ == "__main__":
-    httpLinkList = ['http://100.100.62.235:8000/v1/videos/5aba6d7a4d7eac0007611734/faces',
-                    #'http://100.100.62.235:8000/v1/videos/5aba6d7a4d7eac0007611736/faces',
-                    #'http://100.100.62.235:8000/v1/videos/5aba6da14d7eac0007611738/faces',
-                    #'http://100.100.62.235:8000/v1/videos/5aba6da94d7eac000761173a/faces',
+    httpLinkList = ['http://100.100.62.235:8000/v1/feats/5aba6d7a4d7eac0007611734/faces',
+                    #'http://100.100.62.235:8000/v1/feats/5aba6d7a4d7eac0007611736/faces',
+                    #'http://100.100.62.235:8000/v1/feats/5aba6da14d7eac0007611738/faces',
+                    #'http://100.100.62.235:8000/v1/feats/5aba6da94d7eac000761173a/faces',
                     ]
     # cluster_from_httpLinkList(httpLinkList)
-    #cluster_from_video_dir(videoDir='5ab52c0e28734100076d67b9', methodList=['DBSCAN'])
+    #cluster_from_feat_dir(featDir='5ab52c0e28734100076d67b9', methodList=['DBSCAN'])

@@ -23,12 +23,12 @@ def load_label(testsetDir):
     return labelDict
 
 
-def cluster_and_test_from_video_dir(videoDir, picDir, labelDict, methodList=['DBSCAN']):
+def cluster_and_test_from_feat_dir(featDir, imgDir, labelDict, methodList=['DBSCAN']):
     if methodList[0] == 'API':
         methodResultDict = {}
-        methodResultDict['API'] = test_former_api(videoDir)
+        methodResultDict['API'] = test_former_api(featDir)
     else:
-        methodResultDict = cluster_from_video_dir(videoDir, picDir, methodList)
+        methodResultDict = cluster_from_feat_dir(featDir, imgDir, methodList)
     for method in methodResultDict.keys():
         resultDict = methodResultDict[method]
         resultClusterDict = make_clusterDict_from_resultDict(resultDict)
@@ -81,13 +81,13 @@ def find_cluster_most_label(listOfSameCluster, labelDict):
     return mostLabel, mostLabelNum
 
 
-def test_former_api(videoDir):
+def test_former_api(featDir):
     classCnt = 0
     resultDict = {}
-    for dirName in os.listdir(videoDir):
+    for dirName in os.listdir(featDir):
         if str(dirName).startswith('.'):
             continue
-        currentDir = os.path.join(videoDir, dirName)
+        currentDir = os.path.join(featDir, dirName)
         for fileName in os.listdir(currentDir):
             if fileName.endswith('.jpg'):
                 resultDict[fileName] = str(classCnt)
@@ -151,17 +151,22 @@ if __name__ == '__main__':
     parser.add_argument('--method', type=str, required=True,
                         help='DBSCAN, API, AP, RankOrder')
     parser.add_argument('--labelDir', type=str, required=False,
-                        default='test_set', help='Path of labeled pictures')
-    parser.add_argument('--videoDir', type=str, required=True,
+                        default='test_set', help='Path of labeled images')
+    parser.add_argument('--featDir', type=str, required=True,
                         help='Path of features to be clustered')
     parser.add_argument('--featureList', type=str, required=True,
                         help='Feature list of feature file name')
-    parser.add_argument('--picDir', type=str, required=True,
-                        help='Path of pictures to be clustered')
-    parser.add_argument('--saveResult', type=bool, required=True,
-                        help='Whether to save the result pics')
+    parser.add_argument('--imgDir', type=str, required=False,
+                        default='',
+                        help='Path of images to be clustered')
+    parser.add_argument('--imgList', type=str, required=False,
+                        default='',
+                        help='List of images to be clustered')
+    parser.add_argument('--saveResult', dest='saveResult', action='store_true',
+                        help='Whether to save the result imgs')
     parser.add_argument('--saveDir', type=str, required=True,
-                        help='Path to save clustered pictures')
+                        default='./results',
+                        help='Path to save clustered images')
     parser.add_argument('--eps', type=float, required=False,
                         default=None, help='DBSCAN parameter')
     parser.add_argument('--nProcess', type=int, required=False,
@@ -169,17 +174,23 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     #labelDict = load_label(args['labelDir'])
-    #f_score = cluster_and_test_from_video_dir('5ab52c0e28734100076d67b9', labelDict, methodList=['API'])
-    #f_score = cluster_and_test_from_video_dir(args['videoDir'], args['picDir'], labelDict, methodList=[args['method']])
+    #f_score = cluster_and_test_from_feat_dir('5ab52c0e28734100076d67b9', labelDict, methodList=['API'])
+    #f_score = cluster_and_test_from_feat_dir(args['featDir'], args['imgDir'], labelDict, methodList=[args['method']])
     # print f_score
     if args['eps'] is None:
         eps = ''
     else:
         eps = str(args['eps'])
 
+    print "type(args['saveResult']): ", type(args['saveResult'])
+    print "args['saveResult']: ", args['saveResult']
+
     saveDir = args['saveDir'] + '_' + eps
-    cluster_from_video_dir(args['videoDir'], args['featureList'], args['picDir'], methodList=[args['method']],
-                           saveResult=args['saveResult'], saveDir=saveDir, eps=args['eps'], nProcess=args['nProcess'])
+    cluster_from_feat_dir(args['featDir'], args['featureList'],
+                          [args['method']],
+                          saveResult=args['saveResult'], saveDir=saveDir,
+                          imgDir=args['imgDir'], imgList=args['imgList'],
+                          eps=args['eps'], nProcess=args['nProcess'])
 
     print args['eps']
     # os.system("ls -lR {}|grep \"^-\"|wc -l".format(saveDir))
